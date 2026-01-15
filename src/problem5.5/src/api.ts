@@ -1,6 +1,6 @@
 import type { Task, CreateTaskDTO, UpdateTaskDTO, TaskListResponse } from "./types";
 
-const API_BASE = "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 export async function fetchTasks(): Promise<TaskListResponse> {
   const res = await fetch(`${API_BASE}/tasks`);

@@ -1,0 +1,73 @@
+@startuml score-flow
+!theme plain
+
+title Score Update Flow - Sequence Diagram
+
+actor User
+participant "Client App" as Client
+participant "API Server" as API
+participant "Token Service" as Token
+participant "Validator" as Validator
+database "PostgreSQL" as DB
+database "Redis Cache" as Cache
+participant "WebSocket Server" as WS
+participant "Other Clients" as Others
+
+== 1. Start Action (Get Token) ==
+
+User -> Client: Initiate Action
+Client -> API: POST /api/actions/start\n{action_type, metadata}
+API -> API: Authenticate (JWT)
+API -> Token: Generate Action Token
+Token -> Token: Create signed token\n(user_id, action_type, score_value, expiry, nonce)
+Token --> API: action_token
+API -> DB: Store token hash\n(for one-time use validation)
+API --> Client: 200 OK\n{action_token, expires_at}
+
+== 2. User Performs Action ==
+
+User -> Client: Complete Action
+note right of Client: Client holds token\nwhile user performs action
+
+== 3. Submit Completion ==
+
+Client -> API: POST /api/actions/complete\n{action_token}
+API -> API: Authenticate (JWT)
+API -> Validator: Validate Token
+
+alt Token Valid
+    Validator -> Token: Verify Signature
+    Token --> Validator: Valid
+    Validator -> DB: Check token not used
+    DB --> Validator: Token unused
+    Validator -> DB: Mark token as used
+    Validator --> API: Validation Passed
+
+    API -> DB: BEGIN TRANSACTION
+    API -> DB: UPDATE users\nSET score = score + delta\nWHERE id = user_id
+    API -> DB: INSERT INTO score_history\n(audit log)
+    API -> DB: COMMIT
+    DB --> API: Success
+
+    API -> Cache: ZINCRBY leaderboard user_id delta
+    API -> Cache: DEL leaderboard_cache
+    Cache --> API: OK
+
+    API -> Cache: PUBLISH score_update\n{user_id, new_score}
+    Cache -> WS: Receive published message
+
+    API --> Client: 200 OK\n{new_score, rank}
+
+    == 4. Real-time Broadcast ==
+
+    WS -> Cache: ZREVRANGE leaderboard 0 9
+    Cache --> WS: Top 10 scores
+    WS -> Client: WS: leaderboard_update\n{leaderboard: [...]}
+    WS -> Others: WS: leaderboard_update\n{leaderboard: [...]}
+
+else Token Invalid/Expired/Used
+    Validator --> API: Validation Failed\n(reason)
+    API --> Client: 400/401/403 Error\n{error: "reason"}
+end
+
+@enduml

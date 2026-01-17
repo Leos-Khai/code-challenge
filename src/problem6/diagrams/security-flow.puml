@@ -1,0 +1,104 @@
+@startuml security-flow
+!theme plain
+
+title Security Validation Flow - Action Token Lifecycle
+
+participant "Client" as Client
+participant "API Server" as API
+participant "Rate Limiter" as Rate
+participant "JWT Auth" as JWT
+participant "Token Service" as Token
+database "Redis" as Redis
+database "PostgreSQL" as DB
+
+== Authentication Layer ==
+
+Client -> API: Request with Bearer Token
+API -> JWT: Validate JWT
+JWT -> JWT: Verify signature\nCheck expiration\nExtract user_id
+
+alt JWT Valid
+    JWT --> API: user_id, claims
+else JWT Invalid/Expired
+    JWT --> API: Unauthorized
+    API --> Client: 401 Unauthorized
+end
+
+== Rate Limiting Layer ==
+
+API -> Rate: Check rate limit\n(user_id, endpoint)
+Rate -> Redis: GET rate:{user_id}:{endpoint}
+Redis --> Rate: current_count
+
+alt Under Limit
+    Rate -> Redis: INCR rate:{user_id}:{endpoint}\nEXPIRE 60
+    Rate --> API: Allowed
+else Over Limit
+    Rate --> API: Rate Limited
+    API --> Client: 429 Too Many Requests\n{retry_after: seconds}
+end
+
+== Action Token Generation ==
+
+group POST /api/actions/start
+    API -> Token: Generate Token
+    Token -> Token: Create payload:\n- user_id\n- action_type\n- score_value\n- nonce (UUID)\n- issued_at\n- expires_at
+    Token -> Token: Sign with HMAC-SHA256\n(server secret)
+    Token -> DB: INSERT INTO action_tokens\n(nonce_hash, user_id, expires_at)
+    Token --> API: action_token (JWT format)
+    API --> Client: {action_token, expires_at}
+end
+
+== Action Token Validation ==
+
+group POST /api/actions/complete
+    Client -> API: {action_token}
+    API -> Token: Validate Token
+
+    Token -> Token: 1. Verify signature
+    note right: Reject if signature invalid\n(token tampered)
+
+    Token -> Token: 2. Check expiration
+    note right: Reject if expires_at < now\n(token expired)
+
+    Token -> Token: 3. Extract nonce
+    Token -> DB: SELECT * FROM action_tokens\nWHERE nonce_hash = hash(nonce)\nAND used_at IS NULL
+
+    alt Token Found & Unused
+        Token -> DB: UPDATE action_tokens\nSET used_at = NOW()\nWHERE nonce_hash = hash(nonce)
+        Token --> API: Valid\n{user_id, action_type, score_value}
+
+        API -> API: Process score update
+        API --> Client: 200 OK {new_score}
+
+    else Token Not Found
+        Token --> API: Invalid Token
+        API --> Client: 401 Invalid Token
+
+    else Token Already Used
+        Token -> DB: Log suspicious activity\n(replay attack attempt)
+        Token --> API: Token Already Used
+        API --> Client: 403 Token Already Used
+    end
+end
+
+== Additional Security Checks ==
+
+note over API, DB
+  **Score Delta Validation**
+  - Maximum score increase per action type
+  - Cooldown between actions
+  - Daily score cap per user
+
+  **Audit Logging**
+  - All score changes logged
+  - IP address recorded
+  - Anomaly detection triggers
+
+  **Token Security**
+  - Short expiry (5-15 minutes)
+  - One-time use enforced
+  - Nonce prevents replay
+end note
+
+@enduml

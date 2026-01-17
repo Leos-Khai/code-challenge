@@ -1,0 +1,78 @@
+@startuml architecture
+!theme plain
+skinparam componentStyle rectangle
+
+title Live Scoreboard System - Architecture
+
+actor "User" as user
+node "Client Layer" {
+    [Web Browser] as browser
+    [Mobile App] as mobile
+}
+
+node "API Gateway" {
+    [Load Balancer] as lb
+    [Rate Limiter] as rate
+}
+
+node "Application Layer" {
+    [REST API Server] as api
+    [WebSocket Server] as ws
+    [Action Validator] as validator
+}
+
+node "Data Layer" {
+    database "PostgreSQL\n(Users, Scores)" as db
+    database "Redis\n(Cache, Pub/Sub)" as redis
+}
+
+node "Security" {
+    [JWT Auth] as jwt
+    [Token Service] as token
+}
+
+' Client connections
+user --> browser
+user --> mobile
+browser --> lb : HTTPS
+mobile --> lb : HTTPS
+browser <--> ws : WSS (Real-time)
+mobile <--> ws : WSS (Real-time)
+
+' Gateway routing
+lb --> rate
+rate --> api
+rate --> ws
+
+' API connections
+api --> jwt : Authenticate
+api --> validator : Validate Actions
+api --> token : Generate/Verify Tokens
+api --> db : Read/Write
+api --> redis : Cache & Publish
+
+' WebSocket connections
+ws --> jwt : Authenticate
+ws --> redis : Subscribe
+
+' Validator connections
+validator --> token : Verify Action Token
+validator --> db : Log Audit
+
+' Data sync
+redis --> ws : Push Updates
+
+note right of redis
+  Sorted Set for Leaderboard
+  Pub/Sub for Real-time Updates
+  Token Blacklist
+end note
+
+note right of validator
+  - Verify token signature
+  - Check expiration
+  - Ensure one-time use
+  - Rate limit per user
+end note
+
+@enduml

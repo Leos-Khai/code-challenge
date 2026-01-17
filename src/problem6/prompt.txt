@@ -1,0 +1,44 @@
+I need help writing a technical specification document for a live scoreboard system I've designed. Here's my solution approach:
+
+The Problem:
+We need a live scoreboard showing top 10 users with real-time updates. Users complete actions that increase their scores, and we need to prevent cheating/unauthorized score manipulation.
+
+Design:
+
+I'm thinking of using an action token system for security:
+- Before a user performs an action, they request a token from the server
+- The token is a JWT that includes the user ID, action type, expected score value, and a unique nonce
+- Token expires after 5-15 minutes
+- When they complete the action, they send the token back
+- Server validates the token, checks it hasn't been used before, then updates the score
+- Each token can only be used once
+
+For the architecture, I want:
+- Node.js/Express REST API for HTTP endpoints
+- WebSocket (Socket.io or ws) for real-time updates
+- PostgreSQL as the main database
+- Redis for caching the leaderboard and pub/sub for broadcasting updates
+- JWT authentication for users
+
+API endpoints would be:
+- GET /api/leaderboard - get top 10
+- POST /api/actions/start - request an action token
+- POST /api/actions/complete - submit completed action with token
+
+For real-time updates, WebSocket connections would:
+- Require authentication with JWT
+- Broadcast leaderboard updates when top 10 changes
+- Send personal score updates to individual users
+
+I also want rate limiting, audit logging of all score changes, and Redis sorted sets for fast leaderboard queries.
+
+Can you help me write this up as a comprehensive technical specification document? Include:
+1. Full documentation in README.md format
+2. References to PlantUML diagrams for architecture, score flow, and security flow
+3. Database schema for users, action_tokens, and score_history tables
+4. WebSocket protocol details
+5. Error handling
+6. Scalability and improvement suggestions
+7. Implementation checklist
+
+Make it production-ready and detailed enough for a backend team to implement."

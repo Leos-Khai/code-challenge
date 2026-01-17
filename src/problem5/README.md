@@ -69,7 +69,7 @@ Content-Type: application/json
 }
 ```
 
-**Response:** `201 Created`
+Response: `201 Created`
 
 #### List Tasks
 
@@ -77,16 +77,16 @@ Content-Type: application/json
 GET /api/tasks
 ```
 
-**Query Parameters:**
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| status | string | Filter by status: `pending`, `in_progress`, `completed` |
-| priority | number | Filter by priority (1-5) |
-| search | string | Search in title and description |
-| limit | number | Number of results (default: 10) |
-| offset | number | Pagination offset (default: 0) |
+Query Parameters:
+| Parameter | Type   | Description                                             |
+| --------- | ------ | ------------------------------------------------------- |
+| status    | string | Filter by status: `pending`, `in_progress`, `completed` |
+| priority  | number | Filter by priority (1-5)                                |
+| search    | string | Search in title and description                         |
+| limit     | number | Number of results (default: 10)                         |
+| offset    | number | Pagination offset (default: 0)                          |
 
-**Response:** `200 OK`
+Response: `200 OK`
 ```json
 {
   "data": [...],
@@ -102,7 +102,7 @@ GET /api/tasks
 GET /api/tasks/:id
 ```
 
-**Response:** `200 OK` or `404 Not Found`
+Response: `200 OK` or `404 Not Found`
 
 #### Update a Task
 
@@ -118,7 +118,7 @@ Content-Type: application/json
 }
 ```
 
-**Response:** `200 OK` or `404 Not Found`
+Response: `200 OK` or `404 Not Found`
 
 #### Delete a Task
 
@@ -126,7 +126,7 @@ Content-Type: application/json
 DELETE /api/tasks/:id
 ```
 
-**Response:** `204 No Content` or `404 Not Found`
+Response: `204 No Content` or `404 Not Found`
 
 ## Example Usage
 
@@ -187,12 +187,12 @@ The application uses SQLite for data persistence. The database file is automatic
 
 ### Task Schema
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | INTEGER | Primary key, auto-increment |
-| title | TEXT | Task title (required) |
-| description | TEXT | Task description |
-| status | TEXT | `pending`, `in_progress`, or `completed` |
-| priority | INTEGER | 1 (low) to 5 (high) |
-| created_at | TEXT | ISO timestamp |
-| updated_at | TEXT | ISO timestamp |
+| Field       | Type    | Description                              |
+| ----------- | ------- | ---------------------------------------- |
+| id          | INTEGER | Primary key, auto-increment              |
+| title       | TEXT    | Task title (required)                    |
+| description | TEXT    | Task description                         |
+| status      | TEXT    | `pending`, `in_progress`, or `completed` |
+| priority    | INTEGER | 1 (low) to 5 (high)                      |
+| created_at  | TEXT    | ISO timestamp                            |
+| updated_at  | TEXT    | ISO timestamp                            |
